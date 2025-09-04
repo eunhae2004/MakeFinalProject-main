@@ -38,3 +38,4 @@ app.mount(settings.API_V1_PREFIX, api)  # type: ignore[attr-defined]
 api.include_router(auth_router.router)
 api.include_router(users_router.router)
 api.include_router(plants_router.router)
+

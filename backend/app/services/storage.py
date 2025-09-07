@@ -1,9 +1,12 @@
-# path: backend/app/services/storage.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from uuid import uuid4
+import os
+from pathlib import Path
+from datetime import datetime, timezone
+from typing import BinaryIO, Tuple
+
+from backend.app.config import settings
 
 # In-memory stores
 _USERS_BY_ID: Dict[str, Dict[str, Any]] = {}
@@ -11,22 +14,22 @@ _USERS_BY_EMAIL: Dict[str, Dict[str, Any]] = {}
 _PLANTS_BY_USER: Dict[str, List[Dict[str, Any]]] = {}
 
 
-def utcnow_iso() -> str:
-    """ISO8601 with UTC offset, e.g., '2025-09-04T03:12:34.567890+00:00'"""
-    return datetime.now(timezone.utc).isoformat()
-
-
 def new_uuid() -> str:
-    return str(uuid4())
+    import uuid
+    return str(uuid.uuid4())
+
+
+def utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 # --- Users ---
 def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
-    return _USERS_BY_ID.get(user_id)
+    return _USERS_BY_ID.get(user_id)  # type: ignore[no-any-return]
 
 
 def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
-    return _USERS_BY_EMAIL.get(email)
+    return _USERS_BY_EMAIL.get(email)  # type: ignore[no-any-return]
 
 
 def add_user(user: Dict[str, Any]) -> Dict[str, Any]:
@@ -51,7 +54,7 @@ def list_plants(user_id: str) -> List[Dict[str, Any]]:
 def add_plant(user_id: str, plant: Dict[str, Any]) -> Dict[str, Any]:
     _PLANTS_BY_USER.setdefault(user_id, [])
     _PLANTS_BY_USER[user_id].append(plant)
-    # Keep newest first by created_at (ISO8601 lexicographic works)
+    # Keep newest first by created_at
     _PLANTS_BY_USER[user_id].sort(key=lambda p: p.get("created_at", ""), reverse=True)
     return plant
 
@@ -70,3 +73,90 @@ def update_plant(user_id: str, plant_id: str, fields: Dict[str, Any]) -> Optiona
             p.update(fields)
             return p
     return None
+
+
+def safe_ext(filename: str) -> str:
+    name = (filename or "").lower()
+    ext = Path(name).suffix
+    if ext == ".jpeg":
+        ext = ".jpg"
+    return ext
+
+
+def sniff_mime(header: bytes) -> str:
+    # 간단 시그니처 검사
+    if header.startswith(b"\xFF\xD8\xFF"):
+        return "image/jpeg"
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    return "application/octet-stream"
+
+
+def media_root_abs() -> Path:
+    root = Path(settings.MEDIA_ROOT)
+    if not root.is_absolute():
+        # 프로젝트 루트(pland/) 기준 상대경로
+        root = settings.ROOT_DIR / settings.MEDIA_ROOT
+    return root
+
+
+def build_rel_path(dt: datetime, uuid_str: str, ext: str) -> str:
+    y = f"{dt.year:04d}"
+    m = f"{dt.month:02d}"
+    d = f"{dt.day:02d}"
+    return f"{y}/{m}/{d}/{uuid_str}{ext}"
+
+
+def ensure_dirs(rel_path: str) -> Path:
+    base = media_root_abs()
+    full = base / rel_path
+    full.parent.mkdir(parents=True, exist_ok=True)
+    return full
+
+
+def build_url(rel_path: str) -> str:
+    prefix = settings.MEDIA_URL.rstrip("/")
+    return f"{prefix}/{rel_path}".replace("\\", "/")
+
+
+def rel_from_url(url: str) -> str:
+    prefix = settings.MEDIA_URL.rstrip("/") + "/"
+    if url.startswith(prefix):
+        return url[len(prefix):]
+    if url.startswith("/" + prefix):
+        return url[len(prefix) + 1 :]
+    return url.lstrip("/")
+
+
+# ---------- I/O ----------
+def save_file(fileobj: BinaryIO, rel_path: str, *, max_bytes: int) -> Tuple[Path, str]:
+    """
+    스트리밍 저장 + 용량 가드.
+    초과 시 ValueError("too_large") → 전역 미들웨어가 413 변환.
+    """
+    full = ensure_dirs(rel_path)
+    written = 0
+    chunk_size = 1024 * 1024  # 1MB
+    with open(full, "wb") as out:
+        while True:
+            chunk = fileobj.read(chunk_size)
+            if not chunk:
+                break
+            written += len(chunk)
+            if written > max_bytes:
+                out.close()
+                try:
+                    os.remove(full)
+                except FileNotFoundError:
+                    pass
+                raise ValueError("too_large")
+            out.write(chunk)
+    return full, build_url(rel_path)
+
+
+def delete_file(rel_path: str) -> None:
+    full = media_root_abs() / rel_path
+    try:
+        full.unlink()
+    except FileNotFoundError:
+        pass

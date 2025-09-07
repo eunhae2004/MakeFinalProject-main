@@ -2,8 +2,8 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 from backend.app.services import storage
-from backend.app.utils.errors import http_error
-from backend.app.utils.pagination import paginate
+# from backend.app.utils.errors import http_error
+# from backend.app.utils.pagination import paginate
 
 
 def _iso(dt: Optional[datetime]) -> Optional[str]:
@@ -30,23 +30,30 @@ def create(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     return plant
 
 
-def list(user_id: str, limit: int, cursor: Optional[str]) -> Dict[str, Any]:
-    items = storage.list_plants(user_id)
-    slice_, next_cursor, has_more = paginate(items, limit, cursor, id_getter=lambda p: p["id"])
-    return {"items": slice_, "next_cursor": next_cursor, "has_more": has_more}
+# def list(user_id: str, limit: int, cursor: Optional[str]) -> Dict[str, Any]:
+#     items = storage.list_plants(user_id)
+#     slice_, next_cursor, has_more = paginate(
+#         items, 
+#         limit, 
+#         cursor, 
+#         id_getter=lambda p: p["id"]
+#     )
+#     return {"items": slice_, "next_cursor": next_cursor, "has_more": has_more}
 
 
 def get(user_id: str, plant_id: str) -> Dict[str, Any]:
     plant = storage.get_plant(user_id, plant_id)
     if not plant:
-        raise http_error("RESOURCE_NOT_FOUND", "plant not found", status=404)
+        # raise http_error("RESOURCE_NOT_FOUND", "plant not found", status=404)
+        return {"error": "plant not found"}
     return plant
 
 
 def patch(user_id: str, plant_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     plant = storage.get_plant(user_id, plant_id)
     if not plant:
-        raise http_error("RESOURCE_NOT_FOUND", "plant not found", status=404)
+        # raise http_error("RESOURCE_NOT_FOUND", "plant not found", status=404)
+        return {"error": "plant not found"}
 
     updates: Dict[str, Any] = {}
     if "nickname" in data and data["nickname"] is not None:

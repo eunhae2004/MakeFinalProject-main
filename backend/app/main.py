@@ -1,41 +1,69 @@
+from __future__ import annotations
+
+import os
+from datetime import datetime, timezone
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.config import get_settings
-from backend.app.routers import auth as auth_router
-from backend.app.routers import users as users_router
-from backend.app.routers import plants as plants_router
-from pydantic import Field
+try:
+    from .config import get_settings  # type: ignore
+except Exception:  # pragma: no cover
+    get_settings = None  # fallback
 
-settings = get_settings()
+from .routers.dashboard import router as dashboard_router
 
-app = FastAPI(title=settings.APP_NAME, version=settings.VERSION)
+from backend.app.config import settings
+from backend.app.routers.images import router as images_router
+# from backend.app.utils.errors import register_error_handlers
 
-# CORS for mobile app dev
+
+app = FastAPI(title="Pland API", version="0.1.0")
+# app = FastAPI()
+
+# CORS (모바일/프론트 개발 편의)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Development only
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Health & Version
-@app.get("/healthz")
-async def healthz():
-    return {"status": "ok"}
+# 에러 핸들러 등록
+# register_error_handlers(app)
 
+# 이미지 라우터 등록
+# app.include_router(images_router, prefix=settings.API_V1_STR)
+app.include_router(images_router)
+
+
+# 정적 파일 서빙 (개발용)
+# media_dir = (settings.ROOT_DIR / settings.MEDIA_ROOT)
+# media_dir.mkdir(parents=True, exist_ok=True)  # 없으면 생성
+# app.mount(settings.MEDIA_URL, StaticFiles(directory=media_dir), name="media")
+
+
+# 기존 헬스/버전 (유지)
+@app.get("/healthz")
+def healthz():
+    return {"ok": True, "now": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/version")
-async def version():
-    return {"version": settings.VERSION}
+def version():
+    if get_settings:
+        try:
+            s = get_settings()
+            return {
+                "app": getattr(s, "APP_NAME", "Pland API"),
+                "api_v": getattr(s, "VERSION", "0.1.0"),
+            }
+        except Exception:
+            pass
+    return {"app": "Pland API", "api_v": "0.1.0"}
 
-# Mount API v1
-api = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)  # sub-app (optional)
-app.mount(settings.API_V1_PREFIX, api)  # type: ignore[attr-defined]
+# 라우터 마운트 (/api/v1)
+app.include_router(dashboard_router, prefix="/api/v1")
 
-
-api.include_router(auth_router.router)
-api.include_router(users_router.router)
-api.include_router(plants_router.router)
-
+# 실행 예:
+# uvicorn backend.app.main:app --reload

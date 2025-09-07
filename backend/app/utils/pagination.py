@@ -1,57 +1,86 @@
+from __future__ import annotations
+
 import base64
 import json
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 
-def encode_cursor(last_id: Optional[str], extra: Optional[Dict[str, Any]] = None) -> Optional[str]:
-    if not last_id:
-        return None
-    data = {"last_id": last_id}
-    if extra:
-        # 타입 불일치 추론 오류 (추후 수정 예정)
-        data["extra"] = extra
-    raw = json.dumps(data, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-    return base64.urlsafe_b64encode(raw).decode("utf-8")
+def _b64encode(data: dict) -> str:
+    raw = json.dumps(data, separators=(",", ":")).encode("utf-8")
+    s = base64.urlsafe_b64encode(raw).decode("ascii")
+    return s.rstrip("=")
 
 
-def decode_cursor(cursor: Optional[str]) -> Dict[str, Any]:
+def _b64decode(s: str) -> dict:
+    pad = "=" * (-len(s) % 4)
+    raw = base64.urlsafe_b64decode(s + pad)
+    return json.loads(raw.decode("utf-8"))
+
+
+def encode_cursor(value: dict) -> str:
+    return _b64encode(value)
+
+
+def decode_cursor(cursor: Optional[str]) -> Optional[dict]:
     if not cursor:
-        return {}
+        return None
     try:
-        raw = base64.urlsafe_b64decode(cursor.encode("utf-8"))
-        data = json.loads(raw.decode("utf-8"))
-        if isinstance(data, dict):
-            return data
-        return {}
+        return _b64decode(cursor)
     except Exception:
-        return {}
+        return None
 
 
 def paginate(
     items: List[Any],
     limit: int,
-    cursor_input: Optional[str],
-    id_getter: Callable[[Any], str],
+    cursor: Optional[str],
+    *,
+    key_fn: Callable[[Any], Any] | None = None,   # ← 기본 None
+    id_getter: Callable[[Any], Any] | None = None,
+    desc: bool = True,
 ) -> Tuple[List[Any], Optional[str], bool]:
-    """
-    커서 기반 페이지네이션
-    - items: 이미 정렬된 항목 (예: 최신 항목 먼저)
-    - limit: 반환할 최대 항목 수 (cap >=1)
-    - cursor_input: 인코딩된 커서 문자열 또는 None
-    - id_getter: 항목에서 고유 ID를 가져오는 함수
-    """
-    limit = max(1, min(int(limit or 10), 100))
-    decoded = decode_cursor(cursor_input)
-    last_id = decoded.get("last_id")
+    ...
 
+    """
+    이미 정렬된 items 에 대해 커서 기반 페이지네이션.
+    cursor 형식: {"k": [uploaded_at, image_id]}
+    """
+    # items 는 이미 desc 정렬 가정
+    seek = decode_cursor(cursor)
     start_idx = 0
-    if last_id:
-        for i, it in enumerate(items):
-            if id_getter(it) == last_id:
-                start_idx = i + 1
-                break
 
-    slice_ = items[start_idx : start_idx + limit]
+    if seek is not None and "k" in seek:
+        sk = seek["k"]
+        # tuple 비교 통일
+        if not isinstance(sk, (list, tuple)):
+            sk = [sk]
+        sk = tuple(sk)
+
+        def cmp_tuple(a, b):
+            # a, b 둘 다 tuple
+            return (a > b) - (a < b)
+
+        # desc 정렬에서 "sk 바로 다음" 인덱스 찾기
+        for i, it in enumerate(items):
+            k = key_fn(it)
+            if not isinstance(k, (list, tuple)):
+                k = (k,)
+            k = tuple(k)
+            # desc: k < sk 이면, sk 이후(다음 페이지 시작점)
+            if cmp_tuple(k, sk) < 0:
+                start_idx = i
+                break
+        else:
+            # 끝을 넘어감
+            return [], None, False
+
+    page = items[start_idx : start_idx + limit]
     has_more = (start_idx + limit) < len(items)
-    next_cursor = encode_cursor(id_getter(slice_[-1]) if slice_ and has_more else None, None)
-    return slice_, next_cursor, has_more
+    next_cursor = None
+    if has_more and page:
+        last = page[-1]
+        lk = key_fn(last)
+        if not isinstance(lk, (list, tuple)):
+            lk = (lk,)
+        next_cursor = encode_cursor({"k": list(lk)})
+    return page, next_cursor, has_more

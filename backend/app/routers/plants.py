@@ -47,20 +47,22 @@ async def create_plant(body: PlantCreateIn, current_user=Depends(get_current_use
     return plant
 
 
-@router.get("", response_model=PlantListOut)
-async def list_plants(
-    limit: int = Query(10, ge=1, le=100),
-    cursor: Optional[str] = Query(None),
-    current_user=Depends(get_current_user),
-):
-    return plants_service.list(current_user["id"], limit=limit, cursor=cursor)
+# plant 리스트 조회 (페이지네이션 주석 처리로 인해 임시 주석 처리)
 
+# @router.get("", response_model=PlantListOut)
+# async def list_plants(
+#     limit: int = Query(10, ge=1, le=100),
+#     cursor: Optional[str] = Query(None),
+#     current_user=Depends(get_current_user),
+# ):
+#     return plants_service.list(current_user["id"], limit=limit, cursor=cursor)
 
+# plant 상세 조회
 @router.get("/{plant_id}", response_model=PlantOut)
 async def get_plant(plant_id: str, current_user=Depends(get_current_user)):
     return plants_service.get(current_user["id"], plant_id)
 
-
+# plant 수정
 @router.patch("/{plant_id}", response_model=PlantOut)
 async def patch_plant(plant_id: str, body: PlantPatchIn, current_user=Depends(get_current_user)):
     return plants_service.patch(current_user["id"], plant_id, body.dict())

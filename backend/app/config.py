@@ -62,9 +62,9 @@ class Settings(BaseSettings):
         return Path(__file__).resolve().parents[2]
 
 
-# @lru_cache
-# def get_settings() -> "Settings":
-#     # pylance 검사기 오류 무시 (추후 동작 확인 시 수정 예정)
-#     return Settings()
+@lru_cache
+def get_settings() -> "Settings":
+    # pylance 검사기 오류 무시 (추후 동작 확인 시 수정 예정)
+    return Settings()
 
 settings = Settings()

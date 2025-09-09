@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
+from backend.app.config import settings
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,15 +12,27 @@ try:
 except Exception:  # pragma: no cover
     get_settings = None  # fallback
 
-from .routers.dashboard import router as dashboard_router
-
-from backend.app.config import settings
+# 서브 앱 라우터 임포트
+from backend.app.routers.dashboard import router as dashboard_router
+from backend.app.routers.auth import router as auth_router
+from backend.app.routers.plants import router as plants_router
 from backend.app.routers.images import router as images_router
-# from backend.app.utils.errors import register_error_handlers
+
+
+from backend.app.utils.errors import register_error_handlers
 
 
 app = FastAPI(title="Pland API", version="0.1.0")
 # app = FastAPI()
+
+
+register_error_handlers(app) # 에러 핸들러 등록
+
+# 라우터 등록 (확인용)
+app.include_router(images_router, prefix="/api/v1")
+app.include_router(dashboard_router, prefix="/api/v1") 
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(plants_router, prefix="/api/v1")
 
 # CORS (모바일/프론트 개발 편의)
 app.add_middleware(
@@ -30,14 +43,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 에러 핸들러 등록
-# register_error_handlers(app)
-
-# 이미지 라우터 등록
-# app.include_router(images_router, prefix=settings.API_V1_STR)
-app.include_router(images_router)
-
-
 # 정적 파일 서빙 (개발용)
 # media_dir = (settings.ROOT_DIR / settings.MEDIA_ROOT)
 # media_dir.mkdir(parents=True, exist_ok=True)  # 없으면 생성
@@ -45,8 +50,8 @@ app.include_router(images_router)
 
 
 # 기존 헬스/버전 (유지)
-@app.get("/healthz")
-def healthz():
+@app.get("/healthcheck")
+def healthcheck():
     return {"ok": True, "now": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/version")
@@ -62,8 +67,7 @@ def version():
             pass
     return {"app": "Pland API", "api_v": "0.1.0"}
 
-# 라우터 마운트 (/api/v1)
-app.include_router(dashboard_router, prefix="/api/v1")
 
-# 실행 예:
+
+
 # uvicorn backend.app.main:app --reload

@@ -21,6 +21,7 @@ try:
 except Exception:  # pragma: no cover
     pyjwt = None  # type: ignore
 
+
 # 간단한 인메모리 사용자/환경 저장소
 _USERS_DB: Dict[str, Dict[str, Any]] = {}
 

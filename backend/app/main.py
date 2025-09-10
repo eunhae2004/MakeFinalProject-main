@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from backend.app.config import settings
+from backend.app.core.config import settings
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
-    from .config import get_settings  # type: ignore
+    from .core.config import get_settings  # type: ignore
 except Exception:  # pragma: no cover
     get_settings = None  # fallback
 

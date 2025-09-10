@@ -7,7 +7,7 @@ from pydantic import BaseModel
 import jwt  # PyJWT
 from jwt import InvalidTokenError
 
-from backend.app.config import settings
+from backend.app.core.config import settings
 # from backend.app.utils.errors import err
 from backend.app.services import image_service
 from backend.app.services.storage import safe_ext, sniff_mime

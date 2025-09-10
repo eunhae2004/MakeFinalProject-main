@@ -1,6 +1,7 @@
 .env
 dotenv/
 dotenv
+dotenv
 *.pyc
 venv/
 __pycache__/

@@ -6,7 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 
-from backend.app.config import get_settings
+from backend.app.core.config import get_settings
 from backend.app.services import storage
 from backend.app.utils.errors import http_error
 from backend.app.utils import token_blacklist  

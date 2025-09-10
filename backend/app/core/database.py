@@ -15,7 +15,7 @@ from sqlalchemy import event
 
 from backend.app.core.config import settings
 
-
+# MySQL 연결 URL 생성
 def _make_mysql_async_url() -> str:
     # url 인코딩
     user = quote_plus(settings.DB_USER)
@@ -26,6 +26,7 @@ def _make_mysql_async_url() -> str:
     # utf8mb4 설정 + SQLAlchemy 2.0 방식 url
     return f"mysql+aiomysql://{user}:{pwd}@{host}:{port}/{db}?charset=utf8mb4"
 
+# SQLAlchemy 비동기 엔진 생성
 engine = create_async_engine(
     _make_mysql_async_url(),
     echo=settings.SQL_ECHO,

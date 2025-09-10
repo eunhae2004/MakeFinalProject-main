@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import event
 
-from config import settings
+from backend.app.core.config import settings
 
 
 def _make_mysql_async_url() -> str:

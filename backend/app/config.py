@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 
 
 class Settings(BaseSettings):
-
 
     # pydantic-settings v2 방식
     model_config = SettingsConfigDict(
@@ -17,24 +16,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-
-    # # App meta
-    # APP_NAME: str = Field(default="Pland API", env="APP_NAME")
-    # API_V1_PREFIX: str = Field(default="/api/v1", env="API_V1_PREFIX")
-    # VERSION: str = Field(default="0.1.0", env="VERSION")
-
-    # # JWT
-    # JWT_SECRET: str = Field(default="dev-only-change-me", env="JWT_SECRET")  # 개발용 기본값
-    # JWT_ALG: str = Field(default="HS256", env="JWT_ALG")
-    # ACCESS_EXPIRES: int = Field(default=900, env="ACCESS_EXPIRES")                # 15m
-    # REFRESH_EXPIRES: int = Field(default=60 * 60 * 24 * 7, env="REFRESH_EXPIRES") # 7d
-
-    #  # Media
-    # MEDIA_ROOT: str = Field("media", env="MEDIA_ROOT")   # project root(pland/) 기준
-    # MEDIA_URL: str = Field("/media", env="MEDIA_URL")
-    # MAX_UPLOAD_MB: int = Field(5, env="MAX_UPLOAD_MB")
-
-
+    ENV: str = Field(default='development', validation_alias='ENV')  # production, development, testing
 
     APP_NAME: str = Field(default='Pland API', validation_alias='APP_NAME')
     API_V1_PREFIX: str = Field(default='/api/v1', validation_alias='API_V1_PREFIX')
@@ -51,11 +33,17 @@ class Settings(BaseSettings):
     MEDIA_URL: str = Field('/media', validation_alias='MEDIA_URL')
     MAX_UPLOAD_MB: int = Field(5, validation_alias='MAX_UPLOAD_MB')
 
-    # class Config:
-    #     env_file = ".env"
-    #     env_file_encoding = "utf-8"
+    #DB
+    DB_HOST: str = Field(..., validation_alias='DB_HOST')
+    DB_PORT: int = Field(3306, validation_alias='DB_PORT')
+    DB_USER: str = Field(..., validation_alias='DB_USER')
+    DB_PASSWORD: SecretStr = Field(..., validation_alias='DB_PASSWORD')
+    DB_NAME: str = Field(..., validation_alias='DB_NAME')
 
-       # Derived
+    DB_POOL_SIZE: int = Field(20, validation_alias='DB_POOL_SIZE')
+    DB_MAX_OVERFLOW: int = Field(0, validation_alias='DB_MAX_OVERFLOW')
+    SQL_ECHO: bool = Field(False, validation_alias='SQL_ECHO')
+
     @property
     def ROOT_DIR(self) -> Path:
         # .../pland/backend/app/config.py -> parents[2] == project root "pland"
